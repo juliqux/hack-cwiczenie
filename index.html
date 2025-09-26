@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini gra — ćwiczenie kodów</title>
+  <style>
+    :root{--bg:#0b0b0e;--card:#0f1720;--accent:#1e90ff;--muted:#9aa4b2;--ok:#16a34a;--bad:#ef4444}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;color:#e6eef8;background:linear-gradient(180deg,#05060a 0%,var(--bg) 100%);}
+    .wrap{max-width:900px;margin:28px auto;padding:20px}
+    .top{display:flex;gap:16px;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:20px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);padding:16px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    .controls{display:flex;gap:10px;align-items:center}
+    button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .settings{display:flex;gap:10px;align-items:center}
+    label{font-size:13px;color:var(--muted)}
+    input[type=number]{width:64px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6eef8}
+
+    .sequence{margin-top:16px;font-size:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .chip{background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+
+    .game{display:flex;gap:24px;margin-top:18px}
+    .left{flex:1}
+    .keypad{display:grid;grid-template-columns:repeat(3,76px);gap:10px;justify-content:center}
+    .key{width:76px;height:64px;border-radius:10px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;font-size:20px;border:1px solid rgba(255,255,255,0.03)}
+    .key.zero{grid-column:2 / span 1;grid-row:4}
+
+    .sidebar{width:320px}
+    .inputRow{display:flex;gap:8px;align-items:center}
+    input.code{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6eef8;font-size:18px}
+    .hint{font-size:13px;color:var(--muted);margin-top:12px}
+    .result{margin-top:12px;padding:10px;border-radius:8px}
+    .result.ok{background:rgba(22,163,74,0.12);border:1px solid rgba(22,163,74,0.18);color:var(--ok)}
+    .result.bad{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.12);color:var(--bad)}
+    pre{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;color:#e6eef8;overflow:auto}
+    .small{font-size:13px;color:var(--muted)}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+
+    @media (max-width:760px){.game{flex-direction:column}.sidebar{width:100%}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Mini gra — Ćwicz rozwiązywanie kodów</h1>
+      <div class="controls">
+        <div class="settings card" style="padding:10px;display:flex;gap:8px;align-items:center">
+          <label class="small">Długość sekwencji:</label>
+          <input id="len" type="number" min="1" max="8" value="5">
+          <button id="regen">Nowa sekwencja</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="explain" class="card" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="small">Reguła:</div>
+          <strong>Pierwsza liczba = start (pierwsza cyfra kodu). Kolejne to dwucyfrowe instrukcje: pierwsza cyfra = kierunek (1↑,2←,3↓,4→), druga = liczba kroków. Ruch po siatce 3×3 (1..9) z owijaniem; efektywne kroki = steps mod 3.</strong>
+        </div>
+        <div class="small">Kliknij <em>Nowa sekwencja</em></div>
+      </div>
+
+      <div class="sequence" id="seqArea" style="margin-top:12px"></div>
+    </div>
+
+    <div class="game">
+      <div class="left card">
+        <div style="text-align:center;margin-bottom:12px"><strong>Klawiatura (ruchy po 1..9)</strong></div>
+        <div class="keypad" id="keypad"></div>
+        <div class="hint">(Siatka 3×3: 1 2 3 / 4 5 6 / 7 8 9 — ruchy uwzględniają "wrap".)</div>
+      </div>
+
+      <div class="sidebar card">
+        <div class="inputRow">
+          <input id="userCode" placeholder="Wpisz kod (np. 563366)" class="code">
+          <button id="check">Sprawdź</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="showSteps" class="ghost">Pokaż kroki</button>
+          <button id="showAnswer" class="ghost">Pokaż odpowiedź</button>
+        </div>
+
+        <div id="feedback"></div>
+
+        <div style="margin-top:12px">
+          <div class="small">Ustawienia losowania:</div>
+          <div class="small">Kierunek w zakresie 1..4, kroki 0..9 (losowo). Pierwsza liczba to start (1..9).</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="small">Autor: automatycznie wygenerowane — możesz kopiować plik HTML i otworzyć w przeglądarce lokalnie.</footer>
+  </div>
+
+  <script>
+    // Klawiatura & logika
+    const keypadEl = document.getElementById('keypad');
+    const seqArea = document.getElementById('seqArea');
+    const lenInput = document.getElementById('len');
+    const regenBtn = document.getElementById('regen');
+    const checkBtn = document.getElementById('check');
+    const userCode = document.getElementById('userCode');
+    const feedback = document.getElementById('feedback');
+    const showSteps = document.getElementById('showSteps');
+    const showAnswer = document.getElementById('showAnswer');
+
+    // Pozycje siatki (x,y) dla 1..9 (0-indexed), używamy tylko 3x3
+    const pos = {
+      1:[0,0],2:[1,0],3:[2,0],
+      4:[0,1],5:[1,1],6:[2,1],
+      7:[0,2],8:[1,2],9:[2,2]
+    };
+    const invPos = {};
+    for(const k in pos) invPos[pos[k]] = k; // not used directly
+
+    // Directions mapping
+    const dirMap = {1:[0,-1],2:[-1,0],3:[0,1],4:[1,0]}; // 1 up,2 left,3 down,4 right
+
+    function digitAt(x,y){
+      // ensure x,y in 0..2
+      x = ((x%3)+3)%3; y = ((y%3)+3)%3;
+      for(const k in pos){
+        if(pos[k][0]===x && pos[k][1]===y) return Number(k);
+      }
+      return null;
+    }
+
+    function computeCodeFromSequence(seq){
+      // seq: array of numbers, first is start (1..9), rest are two-digit instructions
+      let cur = Number(seq[0]);
+      const code = [String(cur)];
+      for(let i=1;i<seq.length;i++){
+        const inst = String(seq[i]).padStart(2,'0');
+        const d = Number(inst[0]);
+        const steps = Number(inst[1]);
+        const move = dirMap[d];
+        if(!move){
+          // invalid direction: skip
+          code.push(String(cur));
+          continue;
+        }
+        const eff = steps % 3; // because grid 3 wide/high
+        let [x,y] = pos[cur];
+        x += move[0]*eff; y += move[1]*eff;
+        cur = digitAt(x,y);
+        code.push(String(cur));
+      }
+      return code.join('');
+    }
+
+    function genRandomSequence(len){
+      const seq = [];
+      // start
+      const start = Math.floor(Math.random()*9)+1;
+      seq.push(start);
+      for(let i=0;i<len;i++){
+        const d = Math.floor(Math.random()*4)+1; // 1..4
+        const s = Math.floor(Math.random()*10); // 0..9
+        seq.push(d*10 + s);
+      }
+      return seq;
+    }
+
+    // render keypad
+    function renderKeypad(){
+      keypadEl.innerHTML='';
+      for(const n of [1,2,3,4,5,6,7,8,9]){
+        const el = document.createElement('div'); el.className='key'; el.textContent = n;
+        keypadEl.appendChild(el);
+      }
+      const zero = document.createElement('div'); zero.className='key zero'; zero.textContent='0';
+      keypadEl.appendChild(zero);
+    }
+
+    // UI state
+    let currentSeq = genRandomSequence(Number(lenInput.value));
+    let currentAnswer = computeCodeFromSequence(currentSeq);
+
+    function renderSequence(){
+      seqArea.innerHTML='';
+      currentSeq.forEach((v,i)=>{
+        const c = document.createElement('div'); c.className='chip';
+        c.textContent = String(v);
+        if(i===0) c.style.fontWeight='700';
+        seqArea.appendChild(c);
+      });
+    }
+
+    regenBtn.addEventListener('click', ()=>{
+      const l = Number(lenInput.value);
+      if(isNaN(l) || l<1 || l>8) return alert('Długość sekwencji: 1..8');
+      currentSeq = genRandomSequence(l);
+      currentAnswer = computeCodeFromSequence(currentSeq);
+      renderSequence();
+      feedback.innerHTML=''; userCode.value='';
+    });
+
+    checkBtn.addEventListener('click', ()=>{
+      const val = userCode.value.trim();
+      if(!/^[0-9]+$/.test(val)){ feedback.innerHTML = '<div class="result bad">Wprowadź tylko cyfry.</div>'; return; }
+      if(val.length !== currentAnswer.length){ feedback.innerHTML = `<div class="result bad">Kod powinien mieć ${currentAnswer.length} cyfr (tutaj: ${currentAnswer.length}).</div>`; return; }
+      if(val === currentAnswer){ feedback.innerHTML = `<div class="result ok">Brawo! Poprawny kod: <strong>${currentAnswer}</strong></div>`; }
+      else{ feedback.innerHTML = `<div class="result bad">Niepoprawny. Twoja odpowiedź: ${val} — oczekiwano: ${currentAnswer.length} cyfr. Możesz użyć „Pokaż odpowiedź”.</div>`; }
+    });
+
+    showAnswer.addEventListener('click', ()=>{
+      feedback.innerHTML = `<div class="result">Odpowiedź: <strong>${currentAnswer}</strong></div>`;
+    });
+
+    showSteps.addEventListener('click', ()=>{
+      // compute step-by-step
+      let cur = Number(currentSeq[0]);
+      const steps = [{from:null,to:cur,inst:null}];
+      for(let i=1;i<currentSeq.length;i++){
+        const inst = String(currentSeq[i]).padStart(2,'0');
+        const d = Number(inst[0]);
+        const s = Number(inst[1]);
+        const eff = s%3;
+        const move = dirMap[d];
+        let [x,y] = pos[cur];
+        x += move[0]*eff; y += move[1]*eff;
+        const to = digitAt(x,y);
+        steps.push({from:cur,to:to,inst:inst,eff:eff,direction:d,rawSteps:s});
+        cur = to;
+      }
+      let html = '<div class="small">Kroki:</div><pre>';
+      steps.forEach((st,i)=>{
+        if(i===0) html += `Start: ${st.to}\n`;
+        else html += `Instr ${i}: ${st.inst} -> efekt ${st.eff} -> ${st.from} -> ${st.to}\n`;
+      });
+      html += `\nKod: ${currentAnswer}`;
+      html += '</pre>';
+      feedback.innerHTML = html;
+    });
+
+    // init
+    renderKeypad(); renderSequence();
+
+  </script>
+</body>
+</html>
