@@ -159,7 +159,7 @@
       seq.push(start);
       for(let i=0;i<len;i++){
         const d = Math.floor(Math.random()*4)+1; // 1..4
-        const s = Math.floor(Math.random()*10); // 0..9
+        const s = Math.floor(Math.random()*9)+1; // 1..9
         seq.push(d*10 + s);
       }
       return seq;
